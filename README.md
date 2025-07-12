@@ -44,17 +44,6 @@ Copy `.env.example` to `.env` and fill in your credentials:
 cp .env.example .env
 ```
 
-Required variables:
-- `WHATSAPP_ACCESS_TOKEN` - Your WhatsApp Business API token
-- `WHATSAPP_PHONE_NUMBER_ID` - Your WhatsApp phone number ID
-- `ANTHROPIC_API_KEY` - Your Claude API key
-- `GOOGLE_CLIENT_EMAIL` - Service account email
-- `GOOGLE_PRIVATE_KEY` - Service account private key
-- `GOOGLE_CALENDAR_ID` - Target calendar ID
-- `GOOGLE_SHEET_ID_LOGS` - Chat logs spreadsheet ID
-- `GOOGLE_SHEET_ID_APPOINTMENTS` - Appointments spreadsheet ID
-- `GOOGLE_DOC_ID_KNOWLEDGE` - Knowledge base document ID
-
 ### 4. Google Cloud Setup
 
 1. Create a Google Cloud Project

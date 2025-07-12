@@ -1,0 +1,72 @@
+# Dependencies (most important to ignore)
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build files
+.netlify/
+.cache/
+dist/
+build/
+out/
+
+# Environment and sensitive files
+.env*
+*.log
+logs/
+keys/
+*.key
+*.pem
+*.crt
+*.p12
+
+# IDE and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Documentation (unless you need it in context)
+*.md
+docs/
+documentation/
+
+# Test files (usually not needed for context)
+coverage/
+*.test.js
+*.spec.js
+test/
+tests/
+__tests__/
+
+# Media files (usually large)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.svg
+*.ico
+*.mp4
+*.mp3
+*.wav
+*.pdf
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+
+# Git files
+.git/
+.gitignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp

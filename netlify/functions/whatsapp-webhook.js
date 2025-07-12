@@ -20,7 +20,23 @@ exports.handler = async (event, context) => {
       const token = event.queryStringParameters?.['hub.verify_token'];
       const challenge = event.queryStringParameters?.['hub.challenge'];
 
-      if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
+      // Get verify token from environment variable, fallback to 'test' for development
+      const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN || 'test';
+      
+      console.log('Full event:', JSON.stringify(event, null, 2));
+      console.log('Query params:', event.queryStringParameters);
+      console.log('Verification attempt:', { mode, token, expectedToken, challenge });
+
+      // Handle case where no query parameters are provided
+      if (!event.queryStringParameters) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Missing query parameters' })
+        };
+      }
+
+      if (mode === 'subscribe' && token === expectedToken) {
         console.log('Webhook verified successfully');
         return {
           statusCode: 200,
@@ -28,10 +44,11 @@ exports.handler = async (event, context) => {
           body: challenge
         };
       } else {
+        console.log('Webhook verification failed - token mismatch');
         return {
           statusCode: 403,
           headers,
-          body: JSON.stringify({ error: 'Forbidden' })
+          body: JSON.stringify({ error: 'Forbidden', details: { receivedMode: mode, receivedToken: token, expectedToken } })
         };
       }
     }
