@@ -28,11 +28,43 @@
         }
         .green { color: #25D366; }
         .red { color: #ff4444; }
+        .yellow { color: #ffaa00; }
         code {
             background: #f1f1f1;
             padding: 2px 5px;
             border-radius: 3px;
         }
+        .service-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #ccc;
+        }
+        .service-item.connected { border-left-color: #25D366; background-color: #f8fff9; }
+        .service-item.error { border-left-color: #ff4444; background-color: #fff8f8; }
+        .service-item.not_configured { border-left-color: #ffaa00; background-color: #fffdf5; }
+        .service-item.loading { border-left-color: #17a2b8; background-color: #f8fcff; }
+        .service-name { font-weight: bold; font-size: 14px; }
+        .service-message { font-size: 12px; color: #666; margin-top: 2px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-left: 10px; }
+        .status-dot.connected { background-color: #25D366; }
+        .status-dot.error { background-color: #ff4444; }
+        .status-dot.not_configured { background-color: #ffaa00; }
+        .status-dot.loading { background-color: #17a2b8; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .overall-status {
+            text-align: center;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .overall-status.healthy { background-color: #d4edda; color: #155724; }
+        .overall-status.issues { background-color: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
@@ -42,9 +74,13 @@
     </div>
 
     <div class="status">
-        <h2>📡 Webhook Status</h2>
-        <p><strong>Endpoint:</strong> <code>/.netlify/functions/whatsapp-webhook</code></p>
-        <p><strong>Status:</strong> <span class="green">🟢 Ready to receive messages</span></p>
+        <h2>📡 System Status</h2>
+        <button id="refresh-btn" onclick="checkStatus()" style="background: #25D366; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-bottom: 15px;">🔄 Check API Status</button>
+        <div id="status-container">
+            <p>Click "Check API Status" to test all service connections</p>
+        </div>
+        <div id="status-timestamp" style="font-size: 12px; color: #666; margin-top: 10px;"></div>
+        <p><strong>Webhook Endpoint:</strong> <code>/.netlify/functions/whatsapp-webhook</code></p>
     </div>
 
     <div class="status">
@@ -73,7 +109,94 @@
     </div>
 
     <script>
-        // Simple health check
+        async function checkStatus() {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const statusContainer = document.getElementById('status-container');
+            const timestamp = document.getElementById('status-timestamp');
+            
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '🔄 Checking...';
+            
+            statusContainer.innerHTML = `
+                <div class="overall-status loading">
+                    <div>🔄 Testing all API connections...</div>
+                </div>
+                <div class="service-item loading">
+                    <div>
+                        <div class="service-name">Running system diagnostics</div>
+                        <div class="service-message">Please wait while we test each service</div>
+                    </div>
+                    <div class="status-dot loading"></div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/.netlify/functions/status-check');
+                const data = await response.json();
+                
+                let html = '';
+                let connectedCount = 0;
+                let totalCount = 0;
+                
+                const serviceLabels = {
+                    whatsapp: '📱 WhatsApp Business API',
+                    anthropic: '🤖 Anthropic Claude AI',
+                    google: '🔐 Google Authentication',
+                    google_docs: '📄 Google Docs (Knowledge Base)',
+                    google_sheets: '📊 Google Sheets (Chat Logging)'
+                };
+                
+                // Overall status
+                for (const [serviceName, serviceData] of Object.entries(data.services)) {
+                    totalCount++;
+                    if (serviceData.status === 'connected') {
+                        connectedCount++;
+                    }
+                }
+                
+                if (connectedCount === totalCount) {
+                    html += `<div class="overall-status healthy">✅ All systems operational! Your bot is ready to respond.</div>`;
+                } else {
+                    html += `<div class="overall-status issues">⚠️ ${totalCount - connectedCount} service(s) need configuration. Bot may not respond properly.</div>`;
+                }
+                
+                // Individual services
+                for (const [serviceName, serviceData] of Object.entries(data.services)) {
+                    const label = serviceLabels[serviceName] || serviceName;
+                    const statusClass = serviceData.status;
+                    
+                    html += `
+                        <div class="service-item ${statusClass}">
+                            <div>
+                                <div class="service-name">${label}</div>
+                                <div class="service-message">${serviceData.message}</div>
+                            </div>
+                            <div class="status-dot ${statusClass}"></div>
+                        </div>
+                    `;
+                }
+                
+                statusContainer.innerHTML = html;
+                timestamp.textContent = `Last checked: ${new Date(data.timestamp).toLocaleString()}`;
+                
+            } catch (error) {
+                statusContainer.innerHTML = `
+                    <div class="overall-status issues">❌ Unable to check system status</div>
+                    <div class="service-item error">
+                        <div>
+                            <div class="service-name">Status Check Failed</div>
+                            <div class="service-message">Error: ${error.message}</div>
+                        </div>
+                        <div class="status-dot error"></div>
+                    </div>
+                `;
+            }
+            
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '🔄 Check API Status';
+        }
+        
+        // Simple webhook health check on page load
         fetch('/.netlify/functions/whatsapp-webhook?hub.mode=subscribe&hub.verify_token=test&hub.challenge=test')
             .then(response => {
                 if (response.ok) {

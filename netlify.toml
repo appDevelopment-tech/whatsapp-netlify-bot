@@ -3,7 +3,8 @@
   publish = "public"
 
 [functions]
-  external_node_modules = ["@anthropic-ai/sdk", "googleapis"]
+  node_bundler = "esbuild"
+  external_node_modules = ["@anthropic-ai/sdk", "googleapis", "node-fetch"]
 
 [[redirects]]
   from = "/api/*"
