@@ -65,22 +65,66 @@
         }
         .overall-status.healthy { background-color: #d4edda; color: #155724; }
         .overall-status.issues { background-color: #f8d7da; color: #721c24; }
+        .api-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #25D366;
+            box-shadow: 0 0 5px rgba(37, 211, 102, 0.3);
+        }
+        .test-button {
+            background: #25D366;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .test-button:hover {
+            background: #1da851;
+        }
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .test-button:not([style*="background"]):hover {
+            background: #1da851;
+        }
+        .test-button[style*="background"]:hover {
+            background: #0e6b47 !important;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🤖 WhatsApp AI Bot</h1>
         <p>Serverless appointment booking with AI assistance</p>
-    </div>
-
-    <div class="status">
-        <h2>📡 System Status</h2>
-        <button id="refresh-btn" onclick="checkStatus()" style="background: #25D366; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-bottom: 15px;">🔄 Check API Status</button>
-        <div id="status-container">
-            <p>Click "Check API Status" to test all service connections</p>
-        </div>
-        <div id="status-timestamp" style="font-size: 12px; color: #666; margin-top: 10px;"></div>
-        <p><strong>Webhook Endpoint:</strong> <code>/.netlify/functions/whatsapp-webhook</code></p>
     </div>
 
     <div class="status">
@@ -154,26 +198,26 @@
                     }
                 }
                 
-                if (connectedCount === totalCount) {
-                    html += `<div class="overall-status healthy">✅ All systems operational! Your bot is ready to respond.</div>`;
-                } else {
+                if (connectedCount !== totalCount) {
                     html += `<div class="overall-status issues">⚠️ ${totalCount - connectedCount} service(s) need configuration. Bot may not respond properly.</div>`;
                 }
                 
-                // Individual services
+                // Individual services - only show errors
                 for (const [serviceName, serviceData] of Object.entries(data.services)) {
-                    const label = serviceLabels[serviceName] || serviceName;
-                    const statusClass = serviceData.status;
-                    
-                    html += `
-                        <div class="service-item ${statusClass}">
-                            <div>
-                                <div class="service-name">${label}</div>
-                                <div class="service-message">${serviceData.message}</div>
+                    if (serviceData.status !== 'connected') {
+                        const label = serviceLabels[serviceName] || serviceName;
+                        const statusClass = serviceData.status;
+                        
+                        html += `
+                            <div class="service-item ${statusClass}">
+                                <div>
+                                    <div class="service-name">${label}</div>
+                                    <div class="service-message">${serviceData.message}</div>
+                                </div>
+                                <div class="status-dot ${statusClass}"></div>
                             </div>
-                            <div class="status-dot ${statusClass}"></div>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
                 
                 statusContainer.innerHTML = html;
@@ -208,6 +252,159 @@
             .catch(error => {
                 console.log('Webhook check failed:', error);
             });
+
+        // API Testing Functions
+        async function testAPI(apiType, buttonElement) {
+            const statusContainer = document.getElementById('status-container');
+            const timestamp = document.getElementById('status-timestamp');
+            
+            // Disable button and show loading state
+            const originalText = buttonElement.textContent;
+            buttonElement.disabled = true;
+            buttonElement.textContent = '🔄 Testing...';
+            
+            // Show loading message
+            statusContainer.innerHTML = `
+                <div class="overall-status loading">
+                    <div>🔄 Testing ${apiType === 'all' ? 'all APIs' : apiType + ' API'}...</div>
+                </div>
+                <div class="service-item loading">
+                    <div>
+                        <div class="service-name">Running test</div>
+                        <div class="service-message">Please wait while we verify connectivity</div>
+                    </div>
+                    <div class="status-dot loading"></div>
+                </div>
+            `;
+            
+            try {
+                const url = apiType === 'all' ? 
+                    '/.netlify/functions/test-apis' : 
+                    `/.netlify/functions/test-apis?api=${apiType}`;
+                    
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                let html = '';
+                
+                if (apiType === 'all') {
+                    // Handle all APIs response
+                    let connectedCount = 0;
+                    let totalCount = Object.keys(data).length;
+                    
+                    for (const [serviceName, serviceData] of Object.entries(data)) {
+                        if (serviceData.success) {
+                            connectedCount++;
+                        }
+                    }
+                    
+                    if (connectedCount !== totalCount) {
+                        html += `<div class="overall-status issues">⚠️ ${totalCount - connectedCount} API(s) need attention. (${connectedCount}/${totalCount} working)</div>`;
+                    }
+                    
+                    const serviceLabels = {
+                        whatsapp: '📱 WhatsApp Business API',
+                        openai: '🤖 Anthropic Claude AI',
+                        googleSheets: '📊 Google Sheets',
+                        googleDocs: '📄 Google Docs',
+                        googleCalendar: '📅 Google Calendar'
+                    };
+                    
+                    for (const [serviceName, serviceData] of Object.entries(data)) {
+                        if (!serviceData.success) {
+                            const label = serviceLabels[serviceName] || serviceName;
+                            const statusClass = 'error';
+                            
+                            html += `
+                                <div class="service-item ${statusClass}">
+                                    <div>
+                                        <div class="service-name">${label}</div>
+                                        <div class="service-message">${serviceData.details || serviceData.error}</div>
+                                    </div>
+                                    <div class="status-dot ${statusClass}"></div>
+                                </div>
+                            `;
+                        }
+                    }
+                } else {
+                    // Handle individual API response
+                    const serviceLabels = {
+                        whatsapp: '📱 WhatsApp Business API',
+                        openai: '🤖 Anthropic Claude AI',
+                        googleSheets: '📊 Google Sheets',
+                        googleDocs: '📄 Google Docs',
+                        googleCalendar: '📅 Google Calendar'
+                    };
+                    
+                    const label = serviceLabels[apiType] || apiType;
+                    const statusClass = data.success ? 'connected' : 'error';
+                    
+                    if (!data.success) {
+                        html += `<div class="overall-status issues">❌ ${label} needs attention</div>`;
+                        
+                        html += `
+                            <div class="service-item error">
+                                <div>
+                                    <div class="service-name">${label}</div>
+                                    <div class="service-message">${data.details || data.error}</div>
+                                </div>
+                                <div class="status-dot error"></div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                statusContainer.innerHTML = html;
+                timestamp.textContent = `Last tested: ${new Date().toLocaleString()}`;
+                
+            } catch (error) {
+                statusContainer.innerHTML = `
+                    <div class="overall-status issues">❌ Test failed</div>
+                    <div class="service-item error">
+                        <div>
+                            <div class="service-name">Connection Error</div>
+                            <div class="service-message">Error: ${error.message}</div>
+                        </div>
+                        <div class="status-dot error"></div>
+                    </div>
+                `;
+            }
+            
+            // Re-enable button
+            buttonElement.disabled = false;
+            buttonElement.textContent = originalText;
+        }
+
+        // Individual API test functions
+        async function testWhatsAppAPI() {
+            const button = event.target;
+            await testAPI('whatsapp', button);
+        }
+
+        async function testAnthropicAPI() {
+            const button = event.target;
+            await testAPI('openai', button);
+        }
+
+        async function testGoogleSheetsAPI() {
+            const button = event.target;
+            await testAPI('googleSheets', button);
+        }
+
+        async function testGoogleDocsAPI() {
+            const button = event.target;
+            await testAPI('googleDocs', button);
+        }
+
+        async function testGoogleCalendarAPI() {
+            const button = event.target;
+            await testAPI('googleCalendar', button);
+        }
+
+        async function testAllAPIs() {
+            const button = event.target;
+            await testAPI('all', button);
+        }
     </script>
 </body>
 </html>

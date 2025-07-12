@@ -23,9 +23,9 @@ exports.handler = async (event, context) => {
       // Get verify token from environment variable, fallback to 'test' for development
       const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN || 'test';
       
-      console.log('Full event:', JSON.stringify(event, null, 2));
-      console.log('Query params:', event.queryStringParameters);
-      console.log('Verification attempt:', { mode, token, expectedToken, challenge });
+      // console.log('Full event:', JSON.stringify(event, null, 2));
+      // console.log('Query params:', event.queryStringParameters);
+      // console.log('Verification attempt:', { mode, token, expectedToken, challenge });
 
       // Handle case where no query parameters are provided
       if (!event.queryStringParameters) {
