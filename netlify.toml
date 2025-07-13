@@ -5,8 +5,7 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@anthropic-ai/sdk", "googleapis", "google-auth-library", "node-fetch"]
-  included_files = ["node_modules/@anthropic-ai/sdk/**", "node_modules/googleapis/**", "node_modules/google-auth-library/**"]
+  # Remove external_node_modules - let esbuild bundle everything
 
 [[redirects]]
   from = "/api/*"
