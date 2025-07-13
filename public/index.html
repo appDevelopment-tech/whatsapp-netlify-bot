@@ -127,6 +127,11 @@
         <p>Serverless appointment booking with AI assistance</p>
     </div>
 
+    <section id="integration-status" class="status">
+      <h2>🌐 Integration Status</h2>
+      <div id="status-cards"></div>
+    </section>
+
     <div class="status">
         <h2>🔧 Features</h2>
         <ul>
@@ -405,6 +410,27 @@
             const button = event.target;
             await testAPI('all', button);
         }
+
+      async function fetchIntegrationStatus() {
+        const res = await fetch('/.netlify/functions/status-check');
+        const data = await res.json();
+        const services = data.services;
+        const container = document.getElementById('status-cards');
+        container.innerHTML = '';
+        Object.entries(services).forEach(([name, status]) => {
+          const color = status.success ? 'green' : 'red';
+          const icon = status.success ? '✅' : '❌';
+          container.innerHTML += `
+            <div class="service-item ${status.success ? 'connected' : 'error'}">
+              <span class="mr-2 ${color} text-lg">${icon}</span>
+              <span class="service-name">${name.charAt(0).toUpperCase() + name.slice(1)}:</span>
+              <span class="ml-2 ${color}">${status.success ? 'Connected' : status.error || 'Error'}</span>
+              ${!status.success && status.details ? `<span class="ml-4 service-message">${status.details}</span>` : ''}
+            </div>
+          `;
+        });
+      }
+      fetchIntegrationStatus();
     </script>
 </body>
 </html>

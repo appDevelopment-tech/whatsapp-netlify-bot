@@ -36,18 +36,9 @@ exports.handler = async (event, context) => {
     const results = {
       timestamp: new Date().toISOString(),
       services: {
-        whatsapp: whatsapp.status === 'fulfilled' ? whatsapp.value : {
-          status: 'error',
-          message: whatsapp.reason?.message || 'Connection failed'
-        },
-        anthropic: anthropic.status === 'fulfilled' ? anthropic.value : {
-          status: 'error', 
-          message: anthropic.reason?.message || 'Connection failed'
-        },
-        google: google.status === 'fulfilled' ? google.value : {
-          status: 'error',
-          message: google.reason?.message || 'Connection failed'
-        }
+        whatsapp: normalizeStatus(whatsapp),
+        anthropic: normalizeStatus(anthropic),
+        google: normalizeStatus(google)
       },
       build_info: {
         node_version: process.version,
@@ -187,4 +178,15 @@ async function testGoogle() {
       message: `Authentication failed: ${error.message}`
     };
   }
+}
+
+function normalizeStatus(service) {
+  if (service.status === 'fulfilled') service = service.value;
+  if (service.status === 'rejected') service = { status: 'error', message: service.reason?.message || 'Connection failed' };
+  return {
+    success: service.status === 'connected',
+    error: service.status === 'error' ? service.message : null,
+    details: service.message || null,
+    ...service
+  };
 }

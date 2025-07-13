@@ -23,24 +23,24 @@ exports.handler = async (event, context) => {
 
     switch (apiToTest) {
       case 'whatsapp':
-        result = { whatsapp: await testWhatsApp() };
+        result = { whatsapp: await wrapTest(testWhatsApp) };
         break;
       case 'anthropic':
       case 'openai': // Legacy support
-        result = { anthropic: await testAnthropic() };
+        result = { anthropic: await wrapTest(testAnthropic) };
         break;
       case 'google':
       case 'googleSheets':
       case 'googleDocs':
       case 'googleCalendar':
-        result = { google: await testGoogle() };
+        result = { google: await wrapTest(testGoogle) };
         break;
       case 'all':
       default:
         result = {
-          whatsapp: await testWhatsApp(),
-          anthropic: await testAnthropic(),
-          google: await testGoogle()
+          whatsapp: await wrapTest(testWhatsApp),
+          anthropic: await wrapTest(testAnthropic),
+          google: await wrapTest(testGoogle)
         };
         break;
     }
@@ -181,5 +181,22 @@ async function testGoogle() {
       error: 'Authentication failed',
       details: error.message
     };
+  }
+}
+
+async function wrapTest(fn) {
+  try {
+    const res = await fn();
+    if (typeof res === 'object' && res !== null) {
+      return {
+        success: res.success !== undefined ? res.success : res.status === 'connected',
+        error: res.error || null,
+        details: res.details || res.message || null,
+        ...res
+      };
+    }
+    return { success: false, error: 'Unknown error', details: res };
+  } catch (e) {
+    return { success: false, error: e.message, details: null };
   }
 }
