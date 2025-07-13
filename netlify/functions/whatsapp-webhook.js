@@ -1,5 +1,10 @@
 const { handleWhatsAppMessage } = require('../utils/whatsapp-handler');
 
+// Simple environment check cache
+let envCheckCache = null;
+let lastEnvCheckTime = 0;
+const ENV_CHECK_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 exports.handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -9,6 +14,30 @@ exports.handler = async (event, context) => {
   };
 
   try {
+    // Basic environment check on startup (cached for performance)
+    const now = Date.now();
+    if (!envCheckCache || (now - lastEnvCheckTime) > ENV_CHECK_CACHE_DURATION) {
+      const requiredVars = ['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID', 'ANTHROPIC_API_KEY'];
+      const missingVars = requiredVars.filter(varName => !process.env[varName]);
+      
+      if (missingVars.length > 0) {
+        console.error('Missing required environment variables:', missingVars);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({
+            error: 'Server configuration error',
+            details: `Missing required variables: ${missingVars.join(', ')}`,
+            timestamp: new Date().toISOString()
+          })
+        };
+      }
+      
+      envCheckCache = true;
+      lastEnvCheckTime = now;
+      console.log('Environment check passed');
+    }
+
     // Handle CORS preflight
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 200, headers, body: '' };

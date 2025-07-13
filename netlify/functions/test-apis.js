@@ -1,5 +1,9 @@
+/**
+ * Simplified API Testing Endpoint
+ * Lightweight wrapper for individual API testing
+ */
+
 exports.handler = async (event, context) => {
-  // Enable CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -12,37 +16,31 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Parse query parameters to determine which API to test
     const { queryStringParameters } = event;
-    const apiToTest = queryStringParameters?.api;
+    const apiToTest = queryStringParameters?.api || 'all';
 
     let result;
 
     switch (apiToTest) {
       case 'whatsapp':
-        result = await testWhatsAppAPI();
+        result = { whatsapp: await testWhatsApp() };
         break;
-      case 'openai':
-        result = await testOpenAI();
+      case 'anthropic':
+      case 'openai': // Legacy support
+        result = { anthropic: await testAnthropic() };
         break;
+      case 'google':
       case 'googleSheets':
-        result = await testGoogleSheets();
-        break;
       case 'googleDocs':
-        result = await testGoogleDocs();
-        break;
       case 'googleCalendar':
-        result = await testGoogleCalendar();
+        result = { google: await testGoogle() };
         break;
       case 'all':
       default:
-        // Test all APIs if no specific API is requested
         result = {
-          whatsapp: await testWhatsAppAPI(),
-          openai: await testOpenAI(),
-          googleSheets: await testGoogleSheets(),
-          googleDocs: await testGoogleDocs(),
-          googleCalendar: await testGoogleCalendar()
+          whatsapp: await testWhatsApp(),
+          anthropic: await testAnthropic(),
+          google: await testGoogle()
         };
         break;
     }
@@ -50,40 +48,42 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(result)
+      body: JSON.stringify({
+        timestamp: new Date().toISOString(),
+        requested_api: apiToTest,
+        results: result
+      }, null, 2)
     };
   } catch (error) {
-    console.error('Test error:', error);
+    console.error('API test error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         success: false,
         error: error.message,
-        details: 'Internal server error occurred during API testing'
+        timestamp: new Date().toISOString()
       })
     };
   }
 };
 
-async function testWhatsAppAPI() {
-  try {
-    const token = process.env.WHATSAPP_ACCESS_TOKEN;
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    
-    if (!token || !phoneNumberId) {
-      return {
-        success: false,
-        error: 'Missing WhatsApp credentials',
-        details: `Token: ${token ? 'Set' : 'Missing'}, Phone Number ID: ${phoneNumberId ? 'Set' : 'Missing'}`,
-        phoneNumberId: phoneNumberId || 'Not configured'
-      };
-    }
+// Simplified test functions focused on basic connectivity
+async function testWhatsApp() {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  
+  if (!token || !phoneNumberId) {
+    return {
+      success: false,
+      error: 'Missing WhatsApp credentials',
+      details: `Token: ${token ? 'Set' : 'Missing'}, Phone ID: ${phoneNumberId ? 'Set' : 'Missing'}`
+    };
+  }
 
+  try {
     const response = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
 
     if (response.ok) {
@@ -91,224 +91,95 @@ async function testWhatsAppAPI() {
       return {
         success: true,
         phoneNumberId,
-        details: `Phone number: ${data.display_phone_number || 'N/A'} - Connection successful`,
-        displayPhoneNumber: data.display_phone_number
+        details: `Phone: ${data.display_phone_number || 'N/A'} - Connected`
       };
     } else {
-      const errorData = await response.json();
-      let errorMessage = 'Unknown error';
-      
-      if (response.status === 400) {
-        errorMessage = 'Invalid phone number ID or access token';
-      } else if (response.status === 401) {
-        errorMessage = 'Access token is invalid or expired';
-      } else if (response.status === 403) {
-        errorMessage = 'Phone number is not registered or permission denied';
-      } else if (response.status === 404) {
-        errorMessage = 'Phone number ID not found';
-      }
-      
       return {
         success: false,
-        error: `HTTP ${response.status} - ${errorMessage}`,
-        details: errorData.error?.message || errorMessage,
-        phoneNumberId: phoneNumberId || 'Not configured'
+        error: `HTTP ${response.status}`,
+        details: 'Invalid credentials or permissions'
       };
     }
   } catch (error) {
     return {
       success: false,
       error: 'Connection failed',
-      details: `Network error: ${error.message}`,
-      phoneNumberId: phoneNumberId || 'Not configured'
+      details: error.message
     };
   }
 }
 
-async function testOpenAI() {
-  try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    
-    if (!apiKey) {
-      return {
-        success: false,
-        error: 'Missing OpenAI API key',
-        details: 'OPENAI_API_KEY environment variable is not set',
-        keyStatus: 'Not configured'
-      };
-    }
+async function testAnthropic() {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  
+  if (!apiKey) {
+    return {
+      success: false,
+      error: 'Missing Anthropic API key',
+      details: 'ANTHROPIC_API_KEY not configured'
+    };
+  }
 
-    const response = await fetch('https://api.openai.com/v1/models', {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const anthropic = new Anthropic({ apiKey });
+
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 10,
+      messages: [{ role: 'user', content: 'Test' }]
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      const modelCount = data.data ? data.data.length : 0;
-      return {
-        success: true,
-        details: `OpenAI API connection successful - ${modelCount} models available`,
-        keyStatus: `Valid (${apiKey.substring(0, 7)}...)`
-      };
-    } else {
-      const errorData = await response.json();
-      let errorMessage = 'Unknown error';
-      
-      if (response.status === 401) {
-        errorMessage = 'Invalid API key or unauthorized access';
-      } else if (response.status === 429) {
-        errorMessage = 'Rate limit exceeded or quota exhausted';
-      } else if (response.status === 403) {
-        errorMessage = 'Forbidden - check API key permissions';
-      }
-      
-      return {
-        success: false,
-        error: `HTTP ${response.status} - ${errorMessage}`,
-        details: errorData.error?.message || errorMessage,
-        keyStatus: `Invalid (${apiKey.substring(0, 7)}...)`
-      };
-    }
+    return {
+      success: !!(response.content && response.content.length > 0),
+      details: 'Claude AI API connection successful'
+    };
   } catch (error) {
     return {
       success: false,
-      error: 'Connection failed',
-      details: `Network error: ${error.message}`,
-      keyStatus: apiKey ? `Set (${apiKey.substring(0, 7)}...)` : 'Not configured'
+      error: 'API connection failed',
+      details: error.message
     };
   }
 }
 
-async function testGoogleSheets() {
-  try {
-    const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-    
-    if (!credentials) {
-      return {
-        success: false,
-        error: 'Missing Google Service Account credentials',
-        details: 'GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set',
-        credentialStatus: 'Not configured'
-      };
-    }
-
-    // Try to parse the credentials
-    const parsedCredentials = JSON.parse(credentials);
-    
-    // Check if required fields are present
-    const requiredFields = ['client_email', 'private_key', 'project_id'];
-    const missingFields = requiredFields.filter(field => !parsedCredentials[field]);
-    
-    if (missingFields.length > 0) {
-      return {
-        success: false,
-        error: 'Incomplete service account credentials',
-        details: `Missing fields: ${missingFields.join(', ')}`,
-        credentialStatus: 'Invalid format'
-      };
-    }
-    
-    return {
-      success: true,
-      details: `Google Sheets credentials valid - Project: ${parsedCredentials.project_id}`,
-      credentialStatus: `Valid (${parsedCredentials.client_email})`
-    };
-  } catch (error) {
+async function testGoogle() {
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  
+  if (!clientEmail || !privateKey) {
     return {
       success: false,
-      error: 'Invalid credentials format',
-      details: `JSON parsing error: ${error.message}`,
-      credentialStatus: 'Invalid JSON'
+      error: 'Missing Google credentials',
+      details: `Email: ${clientEmail ? 'Set' : 'Missing'}, Key: ${privateKey ? 'Set' : 'Missing'}`
     };
   }
-}
 
-async function testGoogleDocs() {
   try {
-    const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-    
-    if (!credentials) {
-      return {
-        success: false,
-        error: 'Missing Google Service Account credentials',
-        details: 'GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set',
-        credentialStatus: 'Not configured'
-      };
-    }
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: clientEmail,
+        private_key: privateKey.replace(/\\n/g, '\n'),
+      },
+      scopes: [
+        'https://www.googleapis.com/auth/documents.readonly',
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/calendar'
+      ]
+    });
 
-    // Try to parse the credentials
-    const parsedCredentials = JSON.parse(credentials);
-    
-    // Check if required fields are present
-    const requiredFields = ['client_email', 'private_key', 'project_id'];
-    const missingFields = requiredFields.filter(field => !parsedCredentials[field]);
-    
-    if (missingFields.length > 0) {
-      return {
-        success: false,
-        error: 'Incomplete service account credentials',
-        details: `Missing fields: ${missingFields.join(', ')}`,
-        credentialStatus: 'Invalid format'
-      };
-    }
+    await auth.getClient();
     
     return {
       success: true,
-      details: `Google Docs credentials valid - Project: ${parsedCredentials.project_id}`,
-      credentialStatus: `Valid (${parsedCredentials.client_email})`
+      details: `Google APIs authenticated (${clientEmail})`
     };
   } catch (error) {
     return {
       success: false,
-      error: 'Invalid credentials format',
-      details: `JSON parsing error: ${error.message}`,
-      credentialStatus: 'Invalid JSON'
-    };
-  }
-}
-
-async function testGoogleCalendar() {
-  try {
-    const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-    
-    if (!credentials) {
-      return {
-        success: false,
-        error: 'Missing Google Service Account credentials',
-        details: 'GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set',
-        credentialStatus: 'Not configured'
-      };
-    }
-
-    // Try to parse the credentials
-    const parsedCredentials = JSON.parse(credentials);
-    
-    // Check if required fields are present
-    const requiredFields = ['client_email', 'private_key', 'project_id'];
-    const missingFields = requiredFields.filter(field => !parsedCredentials[field]);
-    
-    if (missingFields.length > 0) {
-      return {
-        success: false,
-        error: 'Incomplete service account credentials',
-        details: `Missing fields: ${missingFields.join(', ')}`,
-        credentialStatus: 'Invalid format'
-      };
-    }
-    
-    return {
-      success: true,
-      details: `Google Calendar credentials valid - Project: ${parsedCredentials.project_id}`,
-      credentialStatus: `Valid (${parsedCredentials.client_email})`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: 'Invalid credentials format',
-      details: `JSON parsing error: ${error.message}`,
-      credentialStatus: 'Invalid JSON'
+      error: 'Authentication failed',
+      details: error.message
     };
   }
 }
