@@ -7,7 +7,6 @@
 
 # API Keys and sensitive files
 keys/
-*.json
 
 # Dependencies
 node_modules/

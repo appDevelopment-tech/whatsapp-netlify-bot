@@ -1,0 +1,26 @@
+{
+  "name": "whatsapp-netlify-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp AI Bot with appointment booking using Netlify Functions",
+  "scripts": {
+    "dev": "netlify dev",
+    "test": "jest",
+    "build": "npm install && echo 'Build completed'",
+    "deploy": "netlify deploy --prod",
+    "validate-env": "node -e \"require('dotenv').config(); const {EnvironmentValidator} = require('./netlify/utils/env-validator'); const v = new EnvironmentValidator(); const r = v.validateEnvironment(); console.log(JSON.stringify(r, null, 2)); process.exit(r.valid ? 0 : 1);\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "googleapis": "^144.0.0",
+    "google-auth-library": "^9.0.0",
+    "node-fetch": "^2.7.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "netlify-cli": "^17.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
